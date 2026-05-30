@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Tracker Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
+
+    .glass {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .hidden-section {
+      display: none;
+    }
+
+    .active-section {
+      display: block;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginPage" class="flex items-center justify-center min-h-screen p-4">
+    <div class="glass p-8 rounded-3xl w-full max-w-md shadow-2xl">
+      <h1 class="text-3xl font-bold text-center mb-6">Finance Tracker Pro</h1>
+
+      <input id="username" type="text" placeholder="Username"
+        class="w-full p-3 rounded-xl bg-slate-800 mb-4 outline-none" />
+
+      <input id="password" type="password" placeholder="Password"
+        class="w-full p-3 rounded-xl bg-slate-800 mb-6 outline-none" />
+
+      <button onclick="login()"
+        class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-xl font-semibold">
+        Login / Register
+      </button>
+
+      <p class="text-sm text-gray-300 mt-4 text-center">
+        Data is saved per user in browser storage.
+      </p>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="appPage" class="hidden">
+
+    <!-- TOPBAR -->
+    <div class="flex justify-between items-center p-4 glass sticky top-0 z-50">
+      <h1 class="text-2xl font-bold">Finance Tracker</h1>
+
+      <div class="flex gap-3 items-center">
+        <span id="currentUser"></span>
+        <button onclick="logout()"
+          class="bg-red-500 px-4 py-2 rounded-xl">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+      <button onclick="showSection('dashboard')" class="glass p-3 rounded-xl">Dashboard</button>
+      <button onclick="showSection('analysis')" class="glass p-3 rounded-xl">Analysis</button>
+      <button onclick="showSection('history')" class="glass p-3 rounded-xl">History</button>
+      <button onclick="showSection('portfolio')" class="glass p-3 rounded-xl">Portfolio</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="active-section p-4">
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+
+        <div class="glass p-5 rounded-2xl">
+          <h2 class="text-gray-300">Income</h2>
+          <p id="incomeTotal" class="text-3xl font-bold text-green-400">₹0</p>
+        </div>
+
+        <div class="glass p-5 rounded-2xl">
+          <h2 class="text-gray-300">Expenses</h2>
+          <p id="expenseTotal" class="text-3xl font-bold text-red-400">₹0</p>
+        </div>
+
+        <div class="glass p-5 rounded-2xl">
+          <h2 class="text-gray-300">Balance</h2>
+          <p id="balanceTotal" class="text-3xl font-bold text-blue-400">₹0</p>
+        </div>
+      </div>
+
+      <!-- UPLOAD -->
+      <div class="glass p-5 rounded-2xl mb-6">
+        <h2 class="text-xl font-semibold mb-4">Upload Statements</h2>
+
+        <input type="file" id="fileInput" accept=".csv,.pdf"
+          class="mb-4 w-full" />
+
+        <button onclick="handleFileUpload()"
+          class="bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl">
+          Upload & Parse
+        </button>
+
+        <p class="text-sm text-gray-300 mt-3">
+          CSV supported. PDF placeholder included for future advanced parsing.
+        </p>
+      </div>
+
+      <!-- MANUAL ENTRY -->
+      <div class="glass p-5 rounded-2xl mb-6">
+        <h2 class="text-xl font-semibold mb-4">Add Transaction</h2>
+
+        <div class="grid md:grid-cols-5 gap-3">
+          <input id="tDate" type="date" class="p-3 rounded-xl bg-slate-800">
+          <input id="tDesc" type="text" placeholder="Description" class="p-3 rounded-xl bg-slate-800">
+          <input id="tAmount" type="number" placeholder="Amount" class="p-3 rounded-xl bg-slate-800">
+
+          <select id="tType" class="p-3 rounded-xl bg-slate-800">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+
+          <button onclick="addTransaction()"
+            class="bg-blue-600 rounded-xl p-3">
+            Add
+          </button>
+        </div>
+      </div>
+
+      <!-- CHART -->
+      <div class="glass p-5 rounded-2xl">
+        <h2 class="text-xl font-semibold mb-4">Expense Overview</h2>
+        <canvas id="financeChart"></canvas>
+      </div>
+    </section>
+
+    <!-- ANALYSIS -->
+    <section id="analysis" class="hidden-section p-4">
+      <div class="glass p-5 rounded-2xl">
+        <h2 class="text-2xl font-bold mb-4">Financial Analysis</h2>
+
+        <div id="analysisContent" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="history" class="hidden-section p-4">
+      <div class="glass p-5 rounded-2xl overflow-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold">Transaction History</h2>
+
+          <input type="text" id="searchBox"
+            onkeyup="searchTransactions()"
+            placeholder="Search transactions"
+            class="bg-slate-800 p-3 rounded-xl">
+        </div>
+
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b border-gray-700">
+              <th class="p-3">Date</th>
+              <th class="p-3">Description</th>
+              <th class="p-3">Type</th>
+              <th class="p-3">Amount</th>
+            </tr>
+          </thead>
+
+          <tbody id="transactionTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PORTFOLIO -->
+    <section id="portfolio" class="hidden-section p-4">
+      <div class="glass p-5 rounded-2xl mb-6">
+        <h2 class="text-2xl font-bold mb-4">Investment Portfolio</h2>
+
+        <div class="grid md:grid-cols-4 gap-3 mb-4">
+          <input id="pName" type="text" placeholder="Investment Name"
+            class="p-3 rounded-xl bg-slate-800">
+
+          <select id="pType" class="p-3 rounded-xl bg-slate-800">
+            <option>SIP</option>
+            <option>Mutual Fund</option>
+            <option>FD</option>
+            <option>Stock</option>
+            <option>Crypto</option>
+          </select>
+
+          <input id="pValue" type="number" placeholder="Current Value"
+            class="p-3 rounded-xl bg-slate-800">
+
+          <button onclick="addPortfolio()"
+            class="bg-purple-600 rounded-xl p-3">
+            Add
+          </button>
+        </div>
+
+        <div id="portfolioList" class="space-y-3"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let financeChart;
+
+    function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      if (!username || !password) {
+        alert('Please enter username and password');
+        return;
+      }
+
+      const users = JSON.parse(localStorage.getItem('financeUsers') || '{}');
+
+      if (users[username]) {
+        if (users[username].password !== password) {
+          alert('Wrong password');
+          return;
+        }
+      } else {
+        users[username] = {
+          password,
+          transactions: [],
+          portfolio: []
+        };
+      }
+
+      localStorage.setItem('financeUsers', JSON.stringify(users));
+
+      currentUser = username;
+
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('appPage').classList.remove('hidden');
+      document.getElementById('currentUser').innerText = username;
+
+      loadUserData();
+    }
+
+    function logout() {
+      location.reload();
+    }
+
+    function getUsers() {
+      return JSON.parse(localStorage.getItem('financeUsers') || '{}');
+    }
+
+    function saveUsers(users) {
+      localStorage.setItem('financeUsers', JSON.stringify(users));
+    }
+
+    function loadUserData() {
+      renderTransactions();
+      renderPortfolio();
+      updateDashboard();
+      generateAnalysis();
+    }
+
+    function showSection(id) {
+      document.querySelectorAll('section').forEach(section => {
+        section.classList.remove('active-section');
+        section.classList.add('hidden-section');
+      });
+
+      document.getElementById(id).classList.remove('hidden-section');
+      document.getElementById(id).classList.add('active-section');
+    }
+
+    function addTransaction() {
+      const date = document.getElementById('tDate').value;
+      const desc = document.getElementById('tDesc').value;
+      const amount = parseFloat(document.getElementById('tAmount').value);
+      const type = document.getElementById('tType').value;
+
+      if (!date || !desc || !amount) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      const users = getUsers();
+
+      users[currentUser].transactions.push({
+        date,
+        desc,
+        amount,
+        type
+      });
+
+      saveUsers(users);
+
+      renderTransactions();
+      updateDashboard();
+      generateAnalysis();
+
+      document.getElementById('tDate').value = '';
+      document.getElementById('tDesc').value = '';
+      document.getElementById('tAmount').value = '';
+    }
+
+    function renderTransactions() {
+      const users = getUsers();
+      const transactions = users[currentUser].transactions;
+
+      const table = document.getElementById('transactionTable');
+      table.innerHTML = '';
+
+      transactions.reverse().forEach(t => {
+        const row = `
+          <tr class="border-b border-gray-800">
+            <td class="p-3">${t.date}</td>
+            <td class="p-3">${t.desc}</td>
+            <td class="p-3">${t.type}</td>
+            <td class="p-3 ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}">
+              ₹${t.amount}
+            </td>
+          </tr>
+        `;
+
+        table.innerHTML += row;
+      });
+    }
+
+    function updateDashboard() {
+      const users = getUsers();
+      const transactions = users[currentUser].transactions;
+
+      let income = 0;
+      let expense = 0;
+
+      transactions.forEach(t => {
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
+      });
+
+      document.getElementById('incomeTotal').innerText = `₹${income}`;
+      document.getElementById('expenseTotal').innerText = `₹${expense}`;
+      document.getElementById('balanceTotal').innerText = `₹${income - expense}`;
+
+      createChart(income, expense);
+    }
+
+    function createChart(income, expense) {
+      const ctx = document.getElementById('financeChart');
+
+      if (financeChart) financeChart.destroy();
+
+      financeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Income', 'Expense'],
+          datasets: [{
+            data: [income, expense],
+            backgroundColor: ['#22c55e', '#ef4444']
+          }]
+        }
+      });
+    }
+
+    function generateAnalysis() {
+      const users = getUsers();
+      const transactions = users[currentUser].transactions;
+
+      let income = 0;
+      let expense = 0;
+
+      transactions.forEach(t => {
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
+      });
+
+      const savings = income - expense;
+      const savingsRate = income ? ((savings / income) * 100).toFixed(2) : 0;
+
+      const analysis = document.getElementById('analysisContent');
+
+      analysis.innerHTML = `
+        <div class="glass p-4 rounded-xl">
+          <p>Total Income: <strong>₹${income}</strong></p>
+        </div>
+
+        <div class="glass p-4 rounded-xl">
+          <p>Total Expense: <strong>₹${expense}</strong></p>
+        </div>
+
+        <div class="glass p-4 rounded-xl">
+          <p>Savings: <strong>₹${savings}</strong></p>
+        </div>
+
+        <div class="glass p-4 rounded-xl">
+          <p>Savings Rate: <strong>${savingsRate}%</strong></p>
+        </div>
+      `;
+    }
+
+    function addPortfolio() {
+      const name = document.getElementById('pName').value;
+      const type = document.getElementById('pType').value;
+      const value = document.getElementById('pValue').value;
+
+      if (!name || !value) {
+        alert('Please fill all portfolio fields');
+        return;
+      }
+
+      const users = getUsers();
+
+      users[currentUser].portfolio.push({
+        name,
+        type,
+        value
+      });
+
+      saveUsers(users);
+
+      renderPortfolio();
+
+      document.getElementById('pName').value = '';
+      document.getElementById('pValue').value = '';
+    }
+
+    function renderPortfolio() {
+      const users = getUsers();
+      const portfolio = users[currentUser].portfolio;
+
+      const container = document.getElementById('portfolioList');
+      container.innerHTML = '';
+
+      portfolio.forEach(p => {
+        container.innerHTML += `
+          <div class="glass p-4 rounded-xl flex justify-between items-center">
+            <div>
+              <h3 class="font-bold">${p.name}</h3>
+              <p class="text-gray-300">${p.type}</p>
+            </div>
+
+            <div class="text-xl font-bold text-green-400">
+              ₹${p.value}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function searchTransactions() {
+      const input = document.getElementById('searchBox').value.toLowerCase();
+      const rows = document.querySelectorAll('#transactionTable tr');
+
+      rows.forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(input)
+          ? ''
+          : 'none';
+      });
+    }
+
+    function handleFileUpload() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert('Please select a file');
+        return;
+      }
+
+      if (file.name.endsWith('.csv')) {
+        parseCSV(file);
+      } else if (file.name.endsWith('.pdf')) {
+        alert(
+          'PDF parsing engine placeholder added. Future version can use pdf.js + positional X/Y extraction.'
+        );
+      } else {
+        alert('Unsupported file type');
+      }
+    }
+
+    function parseCSV(file) {
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const rows = text.split('\n');
+
+        const users = getUsers();
+
+        rows.slice(1).forEach(row => {
+          const cols = row.split(',');
+
+          if (cols.length >= 4) {
+            const transaction = {
+              date: cols[0]?.trim(),
+              desc: cols[1]?.trim(),
+              amount: parseFloat(cols[2]) || 0,
+              type: cols[3]?.trim().toLowerCase()
+            };
+
+            if (transaction.date && transaction.desc) {
+              users[currentUser].transactions.push(transaction);
+            }
+          }
+        });
+
+        saveUsers(users);
+
+        renderTransactions();
+        updateDashboard();
+        generateAnalysis();
+
+        alert('CSV imported successfully');
+      };
+
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
